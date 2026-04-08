@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // 🛡️ Helper Functions
+    // Checks if the user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Checks if the user is an admin
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "karankharvar2004@gmail.com" || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // ------------------------------------
+    // 🛍️ PUBLIC DATA: Products & Categories
+    // Anyone can view them. Only Admins can modify them.
+    // ------------------------------------
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------
+    // ⚙️ SETTINGS: Site config, shipping, etc.
+    // Anyone can read public settings. Only Admins can modify.
+    // ------------------------------------
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------
+    // 👤 USERS: User profiles
+    // Users can read/write their own profile. Admins can manage all.
+    // ------------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Users can initially create their profile
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can update their profile BUT CANNOT escalate their role to admin
+      allow update: if isAuthenticated() && request.auth.uid == userId 
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+                    || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------
+    // 📦 ORDERS: Purchase history
+    // Logged-in users can create. Admins manage all. 
+    // Users can read only their own orders.
+    // ------------------------------------
+    match /orders/{orderId} {
+      allow create: if isAuthenticated();
+      // Allow read/update if Admin OR if the order belongs to this user
+      allow read, update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------
+    // ⭐ REVIEWS: Product ratings
+    // Anyone can read. Authenticated users can create.
+    // ------------------------------------
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+    
+    // ------------------------------------
+    // 💬 SUPPORT TICKETS
+    // Users create and read their own. Admins manage all.
+    // ------------------------------------
+    match /support/{ticketId} {
+      allow create: if isAuthenticated();
+      allow read, update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+  }
+}
