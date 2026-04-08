@@ -366,3 +366,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   .orders-detail-grid { grid-template-columns: 1fr !important; }
 }
 
+@media (max-width: 768px) {
+  .hero-img-panel { display: none !important; }
+}

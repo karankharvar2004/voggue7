@@ -53,7 +53,7 @@ export default function Navbar() {
       <div className="announcement">
         <div className="marquee-wrap">
           <div className="marquee-track">
-            {"✦ FREE SHIPPING OVER ₹999 ✦ COD AVAILABLE ✦ 7-DAY RETURNS ✦ GENZ DRIP ONLY ✦ ".repeat(6)}
+            {"✦ FREE SHIPPING OVER ₹999 ✦ COD AVAILABLE ✦ 7-DAY RETURNS ✦ GENZ DRIP ONLY ".repeat(6)}
           </div>
         </div>
       </div>
