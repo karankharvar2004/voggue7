@@ -71,7 +71,6 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <img src="/Logo.png?v=3" alt="Voggue7 Logo" style={{ height: 76, objectFit: "contain", filter: "invert(1)" }} />
-            <span style={{ fontSize: 12, background: "var(--neon)", color: "var(--black)", padding: "4px 8px", borderRadius: 3, fontWeight: 1000, letterSpacing: 1 }}>INDIA</span>
           </Link>
 
           {/* Desktop Nav Links */}

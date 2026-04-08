@@ -32,7 +32,7 @@ export function useWishlist() {
 
 const DEFAULT_SLIDES = [
   { id: 1, image: "/tshirt1.jpg", title: "TRIBE NOMADIC", subtitle: "The Dragon Collection — Wild & Untamed", badge: "NEW DROP", cta: "Shop Now", link: "/shop" },
-  { id: 2, image: "/tshirt3.png", title: "PHANTOM EDITION", subtitle: "Made For The Villains — Dare To Be Different", badge: "BESTSELLER", cta: "Explore", link: "/shop?cat=Mens" },
+  { id: 2, image: "/tshirt3.png", title: "PHANTOM EDITION", subtitle: "Made For The Villains — Dare To Be Different", badge: "BESTSELLER", cta: "Explore", link: "/shop?cat=Men" },
   { id: 3, image: "/tshirt2.jpg", title: "ELEGANT SERIES", subtitle: "Minimalist Drip — Less Is More", badge: "LIMITED", cta: "Shop Now", link: "/shop?cat=Unisex" },
   { id: 4, image: "/tshirt4.png", title: "VOGGUE7 ORIGINALS", subtitle: "Fresh Drops Every Week — Stay Ahead", badge: "HOT", cta: "View All", link: "/shop" },
 ];
@@ -121,11 +121,11 @@ export default function Home() {
   function nextSlide() { clearInterval(slideTimer.current); setCurrentSlide(p => (p + 1) % slides.length); }
   function prevSlide() { clearInterval(slideTimer.current); setCurrentSlide(p => (p - 1 + slides.length) % slides.length); }
 
-  const defaultCatImages = { Mens: "/tshirt2.jpg", Womens: "/tshirt3.png", Unisex: "/tshirt1.jpg" };
+  const defaultCatImages = { Men: "/tshirt2.jpg", Women: "/tshirt3.png", Unisex: "/tshirt1.jpg", Mens: "/tshirt2.jpg", Womens: "/tshirt3.png" };
   const getCatImg = (name) => catImages[name] || defaultCatImages[name] || "/tshirt4.png";
   const displayCats = categories.length > 0
-    ? categories.slice(0, 3).map(c => ({ name: c.name, img: getCatImg(c.name) }))
-    : [{ name: "Mens", img: getCatImg("Mens") }, { name: "Womens", img: getCatImg("Womens") }, { name: "Unisex", img: getCatImg("Unisex") }];
+    ? categories.slice(0, 3).map(c => ({ name: (c.name === "Mens" ? "Men" : c.name === "Womens" ? "Women" : c.name), img: getCatImg(c.name) }))
+    : [{ name: "Men", img: getCatImg("Men") }, { name: "Women", img: getCatImg("Women") }, { name: "Unisex", img: getCatImg("Unisex") }];
 
   return (
     <div>

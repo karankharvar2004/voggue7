@@ -41,12 +41,18 @@ export default function Shop() {
 
   useEffect(() => {
     let result = [...products];
-    if (activeCategory !== "All") result = result.filter(p => p.category === activeCategory);
+    if (activeCategory !== "All") {
+      result = result.filter(p => 
+        p.category === activeCategory || 
+        (activeCategory === "Men" && p.category === "Mens") || 
+        (activeCategory === "Women" && p.category === "Womens")
+      );
+    }
     if (activeSubcategory) result = result.filter(p => p.subcategory === activeSubcategory);
     if (search) result = result.filter(p => p.name?.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase()));
     
     // Deduplicate by name and ignore duplicate entries matching identical descriptions/images
-    // This solves the issue where an admin adds "Hottie" to Mens and "Hottie" to Womens as separate DB items
+    // This solves the issue where an admin adds "Hottie" to Men and "Hottie" to Women as separate DB items
     if (activeCategory === "All" || search) {
       const unique = [];
       const seen = new Set();

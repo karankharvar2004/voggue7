@@ -67,7 +67,7 @@ export default function Footer() {
           {/* Shop */}
           <div>
             <div style={{ fontWeight: 800, marginBottom: 14, fontSize: 11, textTransform: "uppercase", letterSpacing: 2 }}>Shop</div>
-            {[["All Drops", "/shop"], ["Mens", "/shop?cat=Mens"], ["Womens", "/shop?cat=Womens"], ["Unisex", "/shop?cat=Unisex"]].map(([l, p]) => (
+            {[["All Drops", "/shop"], ["Men", "/shop?cat=Men"], ["Women", "/shop?cat=Women"], ["Unisex", "/shop?cat=Unisex"]].map(([l, p]) => (
               <Link key={l} to={p} style={{ display: "block", color: "var(--gray3)", fontSize: 13, marginBottom: 9, transition: "color 0.2s" }}
                 onMouseEnter={e => e.target.style.color = "var(--neon)"}
                 onMouseLeave={e => e.target.style.color = "var(--gray3)"}>{l}</Link>
@@ -87,7 +87,7 @@ export default function Footer() {
           {/* Why us */}
           <div>
             <div style={{ fontWeight: 800, marginBottom: 14, fontSize: 11, textTransform: "uppercase", letterSpacing: 2 }}>Why Voggue7</div>
-            {["⚡ New drops weekly", "🚚 Fast Pan India delivery", "↩️ 7-day easy returns", "🔒 100% secure payments", "🇮🇳 Made in India"].map(t => (
+            {["⚡ New drops weekly", "🚚 Fast Pan-India delivery", "↩️ 7-day easy returns", "🔒 100% secure payments", "🇮🇳 Made in India"].map(t => (
               <div key={t} style={{ color: "var(--gray3)", fontSize: 13, marginBottom: 9 }}>{t}</div>
             ))}
           </div>

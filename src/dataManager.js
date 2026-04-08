@@ -58,7 +58,7 @@ export const dataManager = {
   getCategories: async () => {
     const snap = await getDocs(collection(db, "categories"));
     if (snap.empty) {
-      const defaultCats = [{ name: "Mens", subcategories: [] }, { name: "Womens", subcategories: [] }, { name: "Unisex", subcategories: [] }];
+      const defaultCats = [{ name: "Men", subcategories: [] }, { name: "Women", subcategories: [] }, { name: "Unisex", subcategories: [] }];
       for (const cat of defaultCats) {
         await addDoc(collection(db, "categories"), cat);
       }
