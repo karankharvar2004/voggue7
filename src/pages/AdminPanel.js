@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { LayoutDashboard, ShoppingBag, Package, MessageSquare, Star, RotateCcw, Settings, LogOut, Plus, Trash2, Edit, Check, X, Truck, Save, Tag, Image as ImageIcon, Layout, ChevronUp, ChevronDown, Globe } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Package, MessageSquare, Star, RotateCcw, Settings, LogOut, Plus, Trash2, Edit, Check, X, Truck, Save, Tag, Ticket, Image as ImageIcon, Layout, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Globe } from "lucide-react";
 import AdminSiteSettings from "./AdminSiteSettings";
 import { dataManager } from "../dataManager";
+import { mailer } from "../utils/mailer";
 import toast from "react-hot-toast";
 
 const compressImage = async (file) => {
@@ -29,7 +30,7 @@ const compressImage = async (file) => {
 
 const DEFAULT_SLIDES = [
   { id: 1, image: "/tshirt1.jpg", title: "TRIBE NOMADIC", subtitle: "The Dragon Collection — Wild & Untamed", badge: "NEW DROP", cta: "Shop Now", link: "/shop" },
-  { id: 2, image: "/tshirt3.png", title: "PHANTOM EDITION", subtitle: "Made For The Villains — Dare To Be Different", badge: "BESTSELLER", cta: "Explore", link: "/shop?cat=Mens" },
+  { id: 2, image: "/tshirt3.png", title: "PHANTOM EDITION", subtitle: "Made For The Villains — Dare To Be Different", badge: "BESTSELLER", cta: "Explore", link: "/shop?cat=Men" },
   { id: 3, image: "/tshirt2.jpg", title: "ELEGANT SERIES", subtitle: "Minimalist Drip — Less Is More", badge: "LIMITED", cta: "Shop Now", link: "/shop?cat=Unisex" },
   { id: 4, image: "/tshirt4.png", title: "VOGGUE7 ORIGINALS", subtitle: "Fresh Drops Every Week — Stay Ahead", badge: "HOT", cta: "View All", link: "/shop" },
 ];
@@ -49,6 +50,7 @@ export default function AdminPanel() {
     { path: "/admin/homepage", icon: <Layout size={16} />, label: "Homepage" },
     { path: "/admin/products", icon: <ShoppingBag size={16} />, label: "Products" },
     { path: "/admin/categories", icon: <Tag size={16} />, label: "Categories" },
+    { path: "/admin/coupons", icon: <Ticket size={16} />, label: "Coupons" },
     { path: "/admin/orders", icon: <Package size={16} />, label: "Orders" },
     { path: "/admin/returns", icon: <RotateCcw size={16} />, label: "Returns" },
     { path: "/admin/support", icon: <MessageSquare size={16} />, label: "Support" },
@@ -72,8 +74,14 @@ export default function AdminPanel() {
           </Link>
         ))}
         <div style={{ flex: 1 }} />
+        <Link to="/"
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", fontSize: 14, color: "var(--neon)", textDecoration: "none", borderTop: "1px solid var(--border)", transition: "background 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(212,255,0,0.06)"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+          🌐 Visit Website
+        </Link>
         <button onClick={async () => { await logout(); navigate("/"); }}
-          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14, width: "100%", marginTop: 20 }}>
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14, width: "100%" }}>
           <LogOut size={16} /> Logout
         </button>
       </aside>
@@ -86,12 +94,16 @@ export default function AdminPanel() {
               {item.icon} {item.label}
             </Link>
           ))}
+          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8, whiteSpace: "nowrap", fontSize: 12, fontWeight: 600, flexShrink: 0, background: "rgba(212,255,0,0.08)", color: "var(--neon)", border: "1px solid rgba(212,255,0,0.3)" }}>
+            🌐 Website
+          </Link>
         </div>
         <Routes>
           <Route path="/" element={<AdminDashboard />} />
           <Route path="/homepage" element={<AdminHomepage />} />
           <Route path="/products" element={<AdminProducts />} />
           <Route path="/categories" element={<AdminCategories />} />
+          <Route path="/coupons" element={<AdminCoupons />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/returns" element={<AdminReturns />} />
           <Route path="/support" element={<AdminSupport />} />
@@ -184,15 +196,38 @@ function AdminHomepage() {
   ]);
   const [shippingBar, setShippingBar] = useState("Free shipping ₹999+ · 7-day returns · Secure payments · 3–5 day delivery");
   const [catImages, setCatImages] = useState([
-    { name: "Mens", image: "", description: "Mens collection thumbnail" },
-    { name: "Womens", image: "", description: "Womens collection thumbnail" },
+    { name: "Men", image: "", description: "Men collection thumbnail" },
+    { name: "Women", image: "", description: "Women collection thumbnail" },
     { name: "Unisex", image: "", description: "Unisex collection thumbnail" },
   ]);
   const [saving, setSaving] = useState(false);
   const [editSlide, setEditSlide] = useState(null);
   const [slideForm, setSlideForm] = useState({ image: "", title: "", subtitle: "", badge: "", cta: "Shop Now", link: "/shop" });
+  const [reels, setReels] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleReelUpload = async (e) => {
+    let file = e.target.files[0];
+    if (!file) return;
+    setUploadingImage("reel");
+    setUploadProgress(0);
+    try {
+      if (file.type.startsWith("image/")) file = await compressImage(file);
+      setUploadProgress(20);
+      setTimeout(() => setUploadProgress(60), 500);
+      const url = await dataManager.uploadImage(file);
+      setUploadProgress(100);
+      setReels(prev => [...prev, { id: Date.now(), url, type: file.type.startsWith("video/") ? "video" : "image" }]);
+      toast.success("Reel added!");
+      setUploadingImage(false);
+      setUploadProgress(0);
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload failed");
+      setUploadingImage(false);
+    }
+  };
 
   const handleCatImageUpload = async (e, i) => {
     let file = e.target.files[0];
@@ -243,6 +278,7 @@ function AdminHomepage() {
       const d = await dataManager.getSettings("homepage");
       if (d) {
         if (d.slides?.length) setSlides(d.slides);
+        if (d.reels?.length) setReels(d.reels);
         if (d.features?.length) setFeatures(d.features);
         if (d.stats?.length) setStats(d.stats);
         if (d.shippingBar) setShippingBar(d.shippingBar);
@@ -254,7 +290,7 @@ function AdminHomepage() {
   async function saveAll() {
     setSaving(true);
     try {
-      await dataManager.saveSettings("homepage", { slides, features, stats, shippingBar, catImages, updatedAt: new Date().toISOString() });
+      await dataManager.saveSettings("homepage", { slides, reels, features, stats, shippingBar, catImages, updatedAt: new Date().toISOString() });
       toast.success("Homepage updated! 🎉");
     } catch (e) { toast.error("Failed to save"); }
     setSaving(false);
@@ -275,7 +311,7 @@ function AdminHomepage() {
     setSlideForm({ image: "", title: "", subtitle: "", badge: "", cta: "Shop Now", link: "/shop" });
   }
 
-  const tabs = [["slides", "🖼️ Carousel Slides"], ["categories", "🗂️ Category Images"], ["features", "⚡ Features Bar"], ["stats", "📊 Stats"], ["shipping", "📢 Shipping Bar"]];
+  const tabs = [["slides", "🖼️ Carousel Slides"], ["reels", "🎬 Reels"], ["categories", "🗂️ Category Images"], ["features", "⚡ Features Bar"], ["stats", "📊 Stats"], ["shipping", "📢 Shipping Bar"]];
 
   return (
     <div>
@@ -291,6 +327,72 @@ function AdminHomepage() {
           <button key={k} onClick={() => setTab(k)} className={`tag ${tab === k ? "active" : ""}`} style={{ fontSize: 13 }}>{l}</button>
         ))}
       </div>
+
+      {/* REELS CAROUSEL */}
+      {tab === "reels" && (
+        <div>
+          <div className="flex-between" style={{ marginBottom: 20 }}>
+            <p style={{ color: "var(--gray3)", fontSize: 14 }}>
+              Upload small vertical videos or images for the new Reels Carousel.
+            </p>
+            <label className="btn btn-primary" style={{ cursor: "pointer", position: "relative", overflow: "hidden" }}>
+              {uploadingImage === "reel" ? <div className="spinner" style={{ width:14, height:14, borderWidth:2 }} /> : <Plus size={14} />}
+              {uploadingImage === "reel" ? ` Uploading (${uploadProgress}%)` : " Upload Media"}
+              {uploadingImage === "reel" && (
+                <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "var(--black)", width: `${uploadProgress}%`, transition: "width 0.2s ease" }} />
+              )}
+              <input type="file" accept="video/*,image/*" onChange={handleReelUpload} style={{ display: "none" }} disabled={!!uploadingImage} />
+            </label>
+          </div>
+          
+          {reels.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 20px", background: "var(--gray2)", borderRadius: 12, color: "var(--gray3)", border: "1px dashed var(--border)" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🎬</div>
+              <div>No reels uploaded yet.</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 16 }}>
+              {reels.map((reel, i) => (
+                <div key={reel.id} className="card" style={{ padding: 10, display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
+                  <div style={{ background: "rgba(0,0,0,0.5)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 11, fontWeight: "bold", position: "absolute", top: 16, left: 16, zIndex: 10 }}>#{i + 1}</div>
+                  <div style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "9/16", background: "#000", border: "1px solid var(--border)", position: "relative" }}>
+                    {reel.type === "video" ? (
+                      <video src={reel.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} autoPlay muted loop playsInline />
+                    ) : (
+                      <img src={reel.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    )}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => {
+                        if (i === 0) return;
+                        setReels(prev => {
+                          const arr = [...prev];
+                          [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
+                          return arr;
+                        });
+                      }} disabled={i === 0} className="btn btn-ghost" style={{ padding: "6px 8px", opacity: i === 0 ? 0.3 : 1 }}><ChevronLeft size={16} /></button>
+                      <button onClick={() => {
+                        if (i === reels.length - 1) return;
+                        setReels(prev => {
+                          const arr = [...prev];
+                          [arr[i], arr[i+1]] = [arr[i+1], arr[i]];
+                          return arr;
+                        });
+                      }} disabled={i === reels.length - 1} className="btn btn-ghost" style={{ padding: "6px 8px", opacity: i === reels.length - 1 ? 0.3 : 1 }}><ChevronRight size={16} /></button>
+                    </div>
+                    <button onClick={() => {
+                      if(window.confirm("Remove this reel?")) {
+                        setReels(prev => prev.filter(r => r.id !== reel.id));
+                      }
+                    }} className="btn btn-danger" style={{ padding: "6px 10px" }}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CATEGORY IMAGES */}
       {tab === "categories" && (
@@ -396,7 +498,7 @@ function AdminHomepage() {
                   </div>
                   <input type="text" value={slideForm.image} onChange={e => setSlideForm(prev => ({...prev, image: e.target.value}))} placeholder="Image URL" className="input" />
                 </div>
-                {[["title","Title (e.g. TRIBE NOMADIC)"],["subtitle","Subtitle / Description"],["badge","Badge (NEW DROP / HOT / LIMITED)"],["cta","Button Text (Shop Now)"],["link","Button Link (/shop or /shop?cat=Mens)"]].map(([k,p]) => (
+                {[["title","Title (e.g. TRIBE NOMADIC)"],["subtitle","Subtitle / Description"],["badge","Badge (NEW DROP / HOT / LIMITED)"],["cta","Button Text (Shop Now)"],["link","Button Link (/shop or /shop?cat=Men)"]].map(([k,p]) => (
                   <div key={k} className="form-group">
                     <label className="label">{p}</label>
                     <input type="text" value={slideForm[k]} onChange={e => setSlideForm(prev => ({...prev,[k]:e.target.value}))} placeholder={p} className="input" />
@@ -473,7 +575,7 @@ function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", price: "", mrp: "", category: "Mens", subcategory: "", description: "", images: "", sizes: "XS,S,M,L,XL,XXL", badge: "", stock: "100" });
+  const [form, setForm] = useState({ name: "", price: "", mrp: "", category: "Men", subcategory: "", description: "", images: "", sizes: "XS,S,M,L,XL,XXL", badge: "", stock: "100" });
   const [cats, setCats] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -542,7 +644,7 @@ function AdminProducts() {
       if (editing) { await dataManager.updateProduct(editing.id, data); toast.success("Updated!"); }
       else { await dataManager.addProduct(data); toast.success("Product added! 🔥"); }
       setModal(false); setEditing(null);
-      setForm({ name: "", price: "", mrp: "", category: "Mens", subcategory: "", description: "", images: "", sizes: "XS,S,M,L,XL,XXL", badge: "", stock: "100" });
+      setForm({ name: "", price: "", mrp: "", category: "Men", subcategory: "", description: "", images: "", sizes: "XS,S,M,L,XL,XXL", badge: "", stock: "100" });
       fetchProducts();
     } catch (e) { toast.error("Failed"); }
   }
@@ -840,7 +942,7 @@ function AdminCategories() {
             <form onSubmit={saveCategory}>
               <div className="form-group">
                 <label className="label">Category Name *</label>
-                <input type="text" value={form.name} onChange={e => setForm(prev => ({...prev, name: e.target.value}))} placeholder="e.g. Mens" className="input" />
+                <input type="text" value={form.name} onChange={e => setForm(prev => ({...prev, name: e.target.value}))} placeholder="e.g. Men" className="input" />
               </div>
 
               <div className="form-group">
@@ -1151,6 +1253,7 @@ function AdminReturns() {
 
                 <div style={{fontSize:13,color:"var(--gray3)",marginBottom:8}}>
                   <strong style={{color:"var(--white)"}}>Items:</strong> {order.items?.map(i=>`${i.name} (${i.size})`).join(", ")} · <strong style={{color:"var(--neon)"}}>₹{order.total}</strong>
+                  {order.coupon && <span className="badge badge-neon" style={{marginLeft: 10}}>🎟️ {order.coupon} (-₹{order.discountAmount})</span>}
                 </div>
                 <div style={{fontSize:13,color:"var(--gray3)",marginBottom:8}}>
                   📍 {order.shippingAddress?.address}, {order.shippingAddress?.city}, {order.shippingAddress?.state} — {order.shippingAddress?.pincode}
@@ -1208,6 +1311,7 @@ function AdminSupport() {
   const [tickets, setTickets] = useState([]);
   const [reply, setReply] = useState({});
   const [filter, setFilter] = useState("all");
+  const [sendingEmail, setSendingEmail] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -1223,7 +1327,23 @@ function AdminSupport() {
     await dataManager.updateSupportTicket(ticket.id, updates);
     setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, ...updates } : t));
     setReply(prev => ({ ...prev, [ticket.id]: "" }));
-    toast.success("Reply saved! Now send it to user via Email or WhatsApp 👇");
+    toast.success("Reply saved! Now send it to user via Email 👇");
+  }
+
+  async function handleSendEmail(t) {
+    setSendingEmail(t.id);
+    try {
+      const email = t.email || t.userEmail;
+      const name = t.name || t.userName || "Customer";
+      const subject = `Re: ${t.subject}`;
+      const message = `Hi ${name},\n\n${t.adminReply}\n\nBest regards,\nVoggue7 Support`;
+      
+      await mailer.sendEmail(email, name, subject, message);
+      toast.success("Reply securely sent via email! 📧");
+    } catch (e) {
+      toast.error("Failed to send email");
+    }
+    setSendingEmail(null);
   }
 
   const filtered = filter === "all" ? tickets : tickets.filter(t => t.status === filter);
@@ -1235,7 +1355,7 @@ function AdminSupport() {
       </div>
       <div style={{ background: "rgba(212,255,0,0.06)", border: "1px solid rgba(212,255,0,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13 }}>
         <strong style={{ color: "var(--neon)" }}>💡 How to reply:</strong>
-        <span style={{ color: "var(--gray3)", marginLeft: 6 }}>Type reply → Save → Click 📧 Email or 💬 WhatsApp button to send to user. Reply also shows on user contact page.</span>
+        <span style={{ color: "var(--gray3)", marginLeft: 6 }}>Type reply → Save → Click 📧 Send via Email to deliver to user. Reply also shows on their contact page.</span>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {[["all","All"],["open","⏳ Open"],["resolved","✅ Resolved"]].map(([v,l]) => (
@@ -1257,7 +1377,7 @@ function AdminSupport() {
               </div>
               <div style={{ background: "rgba(212,255,0,0.05)", border: "1px solid rgba(212,255,0,0.1)", borderRadius: 8, padding: "8px 12px", marginBottom: 10, display: "flex", gap: 20, flexWrap: "wrap" }}>
                 <div><div style={{ fontSize: 10, color: "var(--gray3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Email</div><div style={{ fontSize: 13, color: "var(--neon)", fontWeight: 600 }}>{t.email || t.userEmail || "—"}</div></div>
-                {(t.phone || t.userPhone) && <div><div style={{ fontSize: 10, color: "var(--gray3)", textTransform: "uppercase", letterSpacing: 0.5 }}>WhatsApp</div><div style={{ fontSize: 13, color: "var(--neon)", fontWeight: 600 }}>{t.phone || t.userPhone}</div></div>}
+                {(t.phone || t.userPhone) && <div><div style={{ fontSize: 10, color: "var(--gray3)", textTransform: "uppercase", letterSpacing: 0.5 }}>Phone</div><div style={{ fontSize: 13, color: "var(--neon)", fontWeight: 600 }}>{t.phone || t.userPhone}</div></div>}
               </div>
               <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 15 }}>{t.subject}</div>
               <div style={{ background: "var(--gray2)", borderRadius: 8, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "var(--gray3)", lineHeight: 1.6 }}>{t.message}</div>
@@ -1267,14 +1387,10 @@ function AdminSupport() {
                     <div style={{ color: "var(--neon)", fontWeight: 700, marginBottom: 4, fontSize: 11 }}>✅ YOUR SAVED REPLY:</div>
                     <div style={{ lineHeight: 1.6 }}>{t.adminReply}</div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <a href={`mailto:${t.email || t.userEmail}?subject=Re: ${encodeURIComponent(t.subject)}&body=${encodeURIComponent("Hi " + (t.name||t.userName) + ",\n\n" + t.adminReply + "\n\nBest regards,\nVoggue7 Support\nvoggue7.netlify.app")}`}
-                      className="btn btn-primary" style={{ padding: "8px 14px", fontSize: 12, textDecoration: "none" }}>📧 Send via Email</a>
-                    {(t.phone || t.userPhone) && (
-                      <a href={`https://wa.me/${(t.phone||t.userPhone).replace(/[^0-9]/g,"")}?text=${encodeURIComponent("Hi " + (t.name||t.userName) + "! 👋\n\nVoggue7 Support reply for: *" + t.subject + "*\n\n" + t.adminReply + "\n\n- Team Voggue7 🔥")}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="btn" style={{ padding: "8px 14px", fontSize: 12, background: "#25D366", color: "white", textDecoration: "none" }}>💬 WhatsApp User</a>
-                    )}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <button onClick={() => handleSendEmail(t)} disabled={sendingEmail === t.id} className="btn btn-primary" style={{ padding: "8px 14px", fontSize: 12 }}>
+                      {sendingEmail === t.id ? "Sending..." : "📧 Send via Email"}
+                    </button>
                     <button onClick={() => setTickets(prev => prev.map(x => x.id === t.id ? { ...x, adminReply: null, status: "open" } : x))}
                       style={{ background: "none", border: "1px solid var(--border)", color: "var(--gray3)", cursor: "pointer", padding: "8px 12px", borderRadius: 8, fontSize: 12 }}>✏️ Edit</button>
                   </div>
@@ -1288,7 +1404,7 @@ function AdminSupport() {
                     <button onClick={() => saveReply(t)} className="btn btn-primary" style={{ padding: "9px 18px", fontSize: 13 }}>
                       <Save size={13} /> Save Reply
                     </button>
-                    <span style={{ fontSize: 12, color: "var(--gray3)" }}>Then use Email/WhatsApp buttons to send</span>
+                    <span style={{ fontSize: 12, color: "var(--gray3)" }}>Then securely send it via Email</span>
                   </div>
                 </div>
               )}
@@ -1418,4 +1534,195 @@ export async function loadSiteSettings() {
     return await dataManager.getSettings("site");
   } catch (e) {}
   return null;
+}
+
+// ---- COUPONS ----
+function AdminCoupons() {
+  const [coupons, setCoupons] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ 
+    code: "", discountType: "percentage", discountValue: "", 
+    minOrderValue: "", maxDiscount: "", applicableMethod: "both", usageLimitPerUser: "", isActive: true 
+  });
+
+  useEffect(() => { fetchCoupons(); }, []);
+
+  async function fetchCoupons() {
+    const data = await dataManager.getCoupons();
+    setCoupons(data);
+  }
+
+  const set = k => e => setForm(prev => ({ ...prev, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+
+  async function saveCoupon(e) {
+    e.preventDefault();
+    if (!form.code || !form.discountValue) return toast.error("Code and Discount Value are required!");
+    const data = { 
+      ...form, 
+      discountValue: Number(form.discountValue),
+      minOrderValue: form.minOrderValue ? Number(form.minOrderValue) : 0,
+      maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : 0,
+      usageLimitPerUser: form.usageLimitPerUser ? Number(form.usageLimitPerUser) : null,
+      code: form.code.toUpperCase()
+    };
+    
+    try {
+      if (editing) {
+        await dataManager.updateCoupon(editing.id, data);
+        toast.success("Coupon updated!");
+      } else {
+        await dataManager.addCoupon(data);
+        toast.success("Coupon added!");
+      }
+      setModal(false);
+      fetchCoupons();
+    } catch (e) {
+      toast.error("Failed to save coupon");
+    }
+  }
+
+  async function deleteCoupon(id) { 
+    if (!window.confirm("Delete this coupon?")) return;
+    await dataManager.deleteCoupon(id); 
+    fetchCoupons(); 
+    toast.success("Coupon deleted!"); 
+  }
+
+  async function toggleActive(coupon) {
+    await dataManager.updateCoupon(coupon.id, { ...coupon, isActive: !coupon.isActive });
+    fetchCoupons();
+    toast.success(`Coupon ${!coupon.isActive ? 'Activated' : 'Deactivated'}`);
+  }
+
+  function openEdit(c) {
+    setEditing(c);
+    setForm({ 
+      code: c.code, 
+      discountType: c.discountType, 
+      discountValue: String(c.discountValue), 
+      minOrderValue: String(c.minOrderValue || ""), 
+      maxDiscount: String(c.maxDiscount || ""), 
+      applicableMethod: c.applicableMethod || "both",
+      usageLimitPerUser: c.usageLimitPerUser ? String(c.usageLimitPerUser) : "",
+      isActive: c.isActive 
+    });
+    setModal(true);
+  }
+
+  function openNew() {
+    setEditing(null);
+    setForm({ code: "", discountType: "percentage", discountValue: "", minOrderValue: "", maxDiscount: "", applicableMethod: "both", usageLimitPerUser: "", isActive: true });
+    setModal(true);
+  }
+
+  return (
+    <div>
+      <div className="flex-between" style={{ marginBottom: 20 }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: 32, letterSpacing: 1 }}>COUPONS ({coupons.length})</h1>
+        <button onClick={openNew} className="btn btn-primary"><Plus size={14} /> Add Coupon</button>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Discount</th><th>Min Order</th><th>Usage Info</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {coupons.map(c => (
+              <tr key={c.id}>
+                <td><strong style={{ color: "var(--neon)", letterSpacing: 1 }}>{c.code}</strong></td>
+                <td>
+                  {c.discountType === "percentage" ? `${c.discountValue}% off` : `₹${c.discountValue} off`}
+                  {c.discountType === "percentage" && c.maxDiscount > 0 && <div style={{fontSize: 11, color: "var(--gray3)"}}>Up to ₹{c.maxDiscount}</div>}
+                </td>
+                <td>{c.minOrderValue > 0 ? `₹${c.minOrderValue}` : "None"}</td>
+                <td>
+                  <div style={{fontSize: 12}}>For: {c.applicableMethod === "both" ? "All Methods" : c.applicableMethod.toUpperCase()}</div>
+                  {c.usageLimitPerUser && <div style={{fontSize: 11, color: "var(--orange)"}}>Limit: {c.usageLimitPerUser}/user</div>}
+                </td>
+                <td>
+                  <button onClick={() => toggleActive(c)} className={`badge badge-${c.isActive ? "green" : "gray"}`} style={{ border: "none", cursor: "pointer" }}>
+                    {c.isActive ? "Active" : "Inactive"}
+                  </button>
+                </td>
+                <td>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => openEdit(c)} className="btn btn-ghost" style={{ padding: "6px 10px" }}><Edit size={13} /></button>
+                    <button onClick={() => deleteCoupon(c.id)} className="btn btn-danger" style={{ padding: "6px 10px" }}><Trash2 size={13} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {coupons.length === 0 && <tr><td colSpan="6" style={{textAlign:"center", padding:"30px", color:"var(--gray3)"}}>No coupons found</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {modal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
+          <div className="modal-box">
+            <div className="flex-between" style={{ marginBottom: 20 }}>
+              <h3 style={{ fontWeight: 700 }}>{editing ? "Edit Coupon" : "Add New Coupon"}</h3>
+              <button onClick={() => setModal(false)} style={{ background: "none", border: "none", color: "var(--gray3)", cursor: "pointer" }}><X size={18} /></button>
+            </div>
+            <form onSubmit={saveCoupon}>
+              <div className="form-group">
+                <label className="label">Coupon Code *</label>
+                <input type="text" value={form.code} onChange={set("code")} placeholder="e.g. SUMMER50" className="input" style={{textTransform: "uppercase"}} />
+              </div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="form-group">
+                  <label className="label">Discount Type</label>
+                  <select value={form.discountType} onChange={set("discountType")} className="input">
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="flat">Flat Amount (₹)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Discount Value *</label>
+                  <input type="number" value={form.discountValue} onChange={set("discountValue")} placeholder={form.discountType === "percentage" ? "e.g. 10 for 10%" : "e.g. 500 for ₹500"} className="input" />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="form-group">
+                  <label className="label">Min Order Value (₹)</label>
+                  <input type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="Optional / e.g. 1999" className="input" />
+                </div>
+                <div className="form-group">
+                  <label className="label">Max Discount Cap (₹)</label>
+                  <input type="number" value={form.maxDiscount} onChange={set("maxDiscount")} placeholder={form.discountType === "flat" ? "N/A" : "Optional / e.g. 500"} className="input" disabled={form.discountType === "flat"} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="form-group">
+                  <label className="label">Applicable For</label>
+                  <select value={form.applicableMethod} onChange={set("applicableMethod")} className="input">
+                    <option value="both">Both COD & Online/UPI</option>
+                    <option value="online">Online / UPI Only</option>
+                    <option value="cod">COD Only</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Usage Limit Per User</label>
+                  <input type="number" value={form.usageLimitPerUser} onChange={set("usageLimitPerUser")} placeholder="Leave blank for unlimited" className="input" />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+                <input type="checkbox" checked={form.isActive} onChange={set("isActive")} style={{ width: 16, height: 16 }} id="activeTick" />
+                <label htmlFor="activeTick" style={{ color: "var(--white)", cursor: "pointer" }}>Is Active</label>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: "center" }}><Save size={14} /> Save Coupon</button>
+                <button type="button" onClick={() => setModal(false)} className="btn btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

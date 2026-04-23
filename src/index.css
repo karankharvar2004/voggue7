@@ -369,3 +369,97 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 @media (max-width: 768px) {
   .hero-img-panel { display: none !important; }
 }
+
+/* Welcome Screen Overlay */
+.welcome-screen-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0f100e; /* Match the dark, sleek background */
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+}
+
+.welcome-screen-overlay.fade-in {
+  animation: welcomeFadeIn 0.3s ease-out forwards;
+}
+
+.welcome-screen-overlay.fade-out {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.welcome-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -5vh; /* adjust vertical centering slightly upwards */
+}
+
+.welcome-logo {
+  height: 140px; /* Increased from 90px for better proportion */
+  object-fit: contain;
+  filter: invert(1);
+  margin-bottom: -12px; /* Negative margin pulls the text up tighter since the image has transparent padding */
+  transform: translateX(-12px); /* Visually center the icon to counteract the asymmetrical lightning bolt/padding */
+}
+
+.welcome-brand-name {
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 400;
+  letter-spacing: 6px;
+  color: #ffffff;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px; 
+}
+
+.welcome-brand-name .dot {
+  color: var(--neon); /* Replace dull gold with our electric neon yellow */
+  font-size: 80px;
+  margin-left: 2px;
+}
+
+.welcome-subtitle {
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 5px;
+  font-weight: 500;
+  color: #7b8380;
+  text-transform: uppercase;
+}
+
+.welcome-loader {
+  position: absolute;
+  bottom: 8vh;
+  width: 160px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.welcome-loader-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--neon); /* Match our brand's electric drip */
+  animation: loadProgress 1.4s ease-in-out forwards;
+}
+
+@keyframes welcomeFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes loadProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+

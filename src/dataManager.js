@@ -63,9 +63,19 @@ export const dataManager = {
         await addDoc(collection(db, "categories"), cat);
       }
       const updatedSnap = await getDocs(collection(db, "categories"));
-      return updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return updatedSnap.docs.map(d => {
+        const data = d.data();
+        if (data.name === "Mens") data.name = "Men";
+        if (data.name === "Womens") data.name = "Women";
+        return { id: d.id, ...data };
+      });
     }
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs.map(d => {
+      const data = d.data();
+      if (data.name === "Mens") data.name = "Men";
+      if (data.name === "Womens") data.name = "Women";
+      return { id: d.id, ...data };
+    });
   },
   addCategory: async (data) => {
     const docRef = await addDoc(collection(db, "categories"), { ...data, createdAt: serverTimestamp() });
@@ -141,6 +151,66 @@ export const dataManager = {
     await deleteDoc(doc(db, "reviews", id));
   },
 
+  // COUPONS
+  getCoupons: async () => {
+    try {
+      const q = query(collection(db, "coupons"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      return [];
+    }
+  },
+  getCouponByCode: async (code) => {
+    try {
+      const q = query(collection(db, "coupons"), where("code", "==", code.toUpperCase()));
+      const snap = await getDocs(q);
+      if (snap.empty) return null;
+      return { id: snap.docs[0].id, ...snap.docs[0].data() };
+    } catch (error) {
+      console.error("Error fetching coupon:", error);
+      return null;
+    }
+  },
+  getUserCouponUsageCount: async (userId, code) => {
+    try {
+      if (!userId) return 0;
+      const q = query(
+        collection(db, "orders"), 
+        where("userId", "==", userId),
+        where("coupon", "==", code.toUpperCase())
+      );
+      const snap = await getDocs(q);
+      // Only count non-cancelled and non-returned orders towards the usage limit if we want, 
+      // but usually any placement counts. Let's filter out "cancelled" in memory if needed, 
+      // or just count all attempts. Let's count all attempts.
+      return snap.size;
+    } catch (error) {
+      console.error("Error fetching usage count:", error);
+      return 0;
+    }
+  },
+  addCoupon: async (data) => {
+    const docRef = await addDoc(collection(db, "coupons"), {
+      ...data,
+      code: data.code.toUpperCase(),
+      createdAt: serverTimestamp()
+    });
+    return { id: docRef.id, ...data };
+  },
+  updateCoupon: async (id, data) => {
+    const docRef = doc(db, "coupons", id);
+    await updateDoc(docRef, { 
+      ...data, 
+      code: data.code.toUpperCase(),
+      updatedAt: serverTimestamp() 
+    });
+  },
+  deleteCoupon: async (id) => {
+    await deleteDoc(doc(db, "coupons", id));
+  },
+
   // SUPPORT
   getSupportTickets: async (userId) => {
     let q = collection(db, "support");
@@ -176,15 +246,18 @@ export const dataManager = {
     await setDoc(doc(db, "settings", type), { ...data, updatedAt: serverTimestamp() }, { merge: true });
   },
 
-  // IMAGE STORAGE
+  // IMAGE & VIDEO STORAGE
   uploadImage: async (file) => {
     try {
+      const isVideo = file.type && file.type.startsWith("video/");
+      const resourceType = isVideo ? "video" : "image";
+      
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET);
 
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
         {
           method: "POST",
           body: formData,

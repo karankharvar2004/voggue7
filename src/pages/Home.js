@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { dataManager } from "../dataManager";
 import { useAuth } from "../contexts/AuthContext";
-import { Heart, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, ArrowRight, ChevronLeft, ChevronRight, Volume2, VolumeX, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 export function useWishlist() {
@@ -60,10 +60,18 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [categories, setCategories] = useState([]);
   const [catImages, setCatImages] = useState({});
+  const [reels, setReels] = useState([]);
+  const [activeReel, setActiveReel] = useState(null);
+  const [unmutedReelId, setUnmutedReelId] = useState(null);
+  const [hoveredReelId, setHoveredReelId] = useState(null);
   const slideTimer = useRef(null);
   const navigate = useNavigate();
   const { isWishlisted, toggle } = useWishlist();
 
+  const touchStartX = useRef(null);
+  const touchEndX = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragDistance = useRef(0);
   useEffect(() => {
     (async () => {
       // Load products INDEPENDENTLY
@@ -94,12 +102,18 @@ export default function Home() {
         const data = await dataManager.getSettings("homepage");
         if (data) {
           if (data.slides?.length) setSlides(data.slides);
+          if (data.reels?.length) setReels(data.reels);
           if (data.features?.length) setFeatures(data.features);
           if (data.stats?.length) setStats(data.stats);
           if (data.shippingBar) setShippingBar(data.shippingBar);
           if (data.catImages?.length) {
             const imgMap = {};
-            data.catImages.forEach(c => { if (c.image) imgMap[c.name] = c.image; });
+            data.catImages.forEach(c => { 
+                let name = c.name;
+                if (name === "Mens") name = "Men";
+                if (name === "Womens") name = "Women";
+                if (c.image) imgMap[name] = c.image; 
+            });
             setCatImages(imgMap);
           }
         }
@@ -121,16 +135,54 @@ export default function Home() {
   function nextSlide() { clearInterval(slideTimer.current); setCurrentSlide(p => (p + 1) % slides.length); }
   function prevSlide() { clearInterval(slideTimer.current); setCurrentSlide(p => (p - 1 + slides.length) % slides.length); }
 
-  const defaultCatImages = { Men: "/tshirt2.jpg", Women: "/tshirt3.png", Unisex: "/tshirt1.jpg", Mens: "/tshirt2.jpg", Womens: "/tshirt3.png" };
+  const handleDragStart = (e) => {
+    setIsDragging(true);
+    touchStartX.current = e.type.includes("mouse") ? e.pageX : e.targetTouches[0].clientX;
+    touchEndX.current = null;
+    dragDistance.current = 0;
+  };
+
+  const handleDragMove = (e) => {
+    if (!isDragging && e.type.includes("mouse")) return;
+    touchEndX.current = e.type.includes("mouse") ? e.pageX : e.targetTouches[0].clientX;
+    dragDistance.current = touchStartX.current - touchEndX.current;
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    if (dragDistance.current > 50) nextSlide();
+    else if (dragDistance.current < -50) prevSlide();
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  const handleClickCapture = (e) => {
+    if (Math.abs(dragDistance.current) > 10) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  const defaultCatImages = { Men: "/tshirt2.jpg", Women: "/tshirt3.png", Unisex: "/tshirt1.jpg" };
   const getCatImg = (name) => catImages[name] || defaultCatImages[name] || "/tshirt4.png";
   const displayCats = categories.length > 0
-    ? categories.slice(0, 3).map(c => ({ name: (c.name === "Mens" ? "Men" : c.name === "Womens" ? "Women" : c.name), img: getCatImg(c.name) }))
+    ? categories.slice(0, 3).map(c => ({ name: c.name, img: getCatImg(c.name) }))
     : [{ name: "Men", img: getCatImg("Men") }, { name: "Women", img: getCatImg("Women") }, { name: "Unisex", img: getCatImg("Unisex") }];
 
   return (
     <div>
       {/* HERO CAROUSEL */}
-      <section style={{ position: "relative", height: "85vh", minHeight: 480, maxHeight: 800, overflow: "hidden", background: "var(--black)" }}>
+      <section 
+        style={{ position: "relative", height: "85vh", minHeight: 480, maxHeight: 800, overflow: "hidden", background: "var(--black)", cursor: isDragging ? "grabbing" : "grab", userSelect: "none" }}
+        onMouseDown={handleDragStart}
+        onMouseMove={handleDragMove}
+        onMouseUp={handleDragEnd}
+        onMouseLeave={handleDragEnd}
+        onTouchStart={handleDragStart}
+        onTouchMove={handleDragMove}
+        onTouchEnd={handleDragEnd}
+        onClickCapture={handleClickCapture}
+      >
         {slides.map((slide, i) => (
           <div key={i} style={{ position: "absolute", inset: 0, opacity: i === currentSlide ? 1 : 0, transition: "opacity 0.9s ease", pointerEvents: i === currentSlide ? "all" : "none" }}>
             <img src={slide.image} alt={slide.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3 }} />
@@ -162,12 +214,7 @@ export default function Home() {
           </div>
         ))}
 
-        <button onClick={prevSlide} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: 46, height: 46, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white", zIndex: 10 }}>
-          <ChevronLeft size={20} />
-        </button>
-        <button onClick={nextSlide} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: 46, height: 46, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white", zIndex: 10 }}>
-          <ChevronRight size={20} />
-        </button>
+
         <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
           {slides.map((_, i) => (
             <button key={i} onClick={() => setCurrentSlide(i)} style={{ width: i === currentSlide ? 28 : 8, height: 8, borderRadius: 4, background: i === currentSlide ? "var(--neon)" : "rgba(255,255,255,0.25)", border: "none", cursor: "pointer", transition: "all 0.3s ease", padding: 0 }} />
@@ -177,6 +224,87 @@ export default function Home() {
           {String(currentSlide + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
         </div>
       </section>
+
+      {/* REELS / SHORTS CAROUSEL */}
+      {reels.length > 0 && (
+        <section style={{ padding: "40px 0", background: "var(--black)", borderBottom: "1px solid var(--border)" }}>
+          <div className="container" style={{ paddingRight: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24, paddingRight: 20 }}>
+              <div style={{ width: 4, height: 24, background: "var(--neon)", borderRadius: 2 }} />
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(24px, 4vw, 32px)", letterSpacing: 1 }}>VOGGUE7 SHORTS</h2>
+            </div>
+            
+            <div style={{ 
+              display: "flex", 
+              gap: 16, 
+              overflowX: "auto", 
+              scrollSnapType: "x mandatory", 
+              paddingBottom: 20, 
+              paddingRight: 20,
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none"
+            }} className="no-scrollbar-flex">
+              {reels.map(reel => (
+                <div key={reel.id} 
+                  onMouseEnter={() => setHoveredReelId(reel.id)}
+                  onMouseLeave={() => setHoveredReelId(null)}
+                  onClick={() => setActiveReel(reel)}
+                  style={{
+                    flexShrink: 0,
+                    width: "clamp(160px, 40vw, 220px)",
+                    aspectRatio: "9/16",
+                    background: "var(--gray2)",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    scrollSnapAlign: "start",
+                    border: "1px solid rgba(255,255,255,0.05)",
+                    position: "relative",
+                    cursor: "pointer"
+                }}>
+                  {reel.type === "video" ? (
+                    <>
+                      <video 
+                        src={reel.url} 
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                        autoPlay 
+                        muted={unmutedReelId !== reel.id} 
+                        loop 
+                        playsInline 
+                        disablePictureInPicture
+                        disableRemotePlayback
+                      />
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUnmutedReelId(prev => prev === reel.id ? null : reel.id);
+                        }}
+                        style={{
+                          position: "absolute", bottom: 12, right: 12, 
+                          background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: "50%", width: 32, height: 32,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "white", zIndex: 10, cursor: "pointer",
+                          opacity: hoveredReelId === reel.id || unmutedReelId === reel.id ? 1 : 0,
+                          transition: "opacity 0.2s ease"
+                        }}
+                      >
+                        {unmutedReelId === reel.id ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                      </button>
+                    </>
+                  ) : (
+                    <img src={reel.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+                  )}
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 40%)", pointerEvents: "none" }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <style dangerouslySetInnerHTML={{__html: `
+            .no-scrollbar-flex::-webkit-scrollbar { display: none; }
+          `}} />
+        </section>
+      )}
 
       {/* Features bar */}
       <section style={{ background: "var(--gray2)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "22px 0" }}>
@@ -278,6 +406,36 @@ export default function Home() {
           </Link>
         </div>
       </section>
+      {/* Modal for Active Reel */}
+      {activeReel && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+        }} onClick={() => setActiveReel(null)}>
+          <button 
+            onClick={() => setActiveReel(null)}
+            style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", color: "white", cursor: "pointer" }}
+          >
+            <X size={32} />
+          </button>
+          <div style={{ maxWidth: 400, width: "100%", height: "85vh", borderRadius: 16, overflow: "hidden", position: "relative" }} onClick={e => e.stopPropagation()}>
+            {activeReel.type === "video" ? (
+              <video 
+                src={activeReel.url} 
+                style={{ width: "100%", height: "100%", objectFit: "cover", background: "black" }} 
+                autoPlay 
+                controls
+                playsInline 
+                disablePictureInPicture
+                disableRemotePlayback
+                controlsList="nodownload"
+              />
+            ) : (
+              <img src={activeReel.url} style={{ width: "100%", height: "100%", objectFit: "contain", background: "black" }} alt="" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

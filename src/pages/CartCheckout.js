@@ -9,29 +9,38 @@ import { QRCodeSVG } from "qrcode.react";
 
 // Hook to load shipping settings
 function useShippingSettings() {
-  const [shippingCharge, setShippingCharge] = useState(99);
-  const [freeAbove, setFreeAbove] = useState(999);
+  const [shippingCOD, setShippingCOD] = useState(99);
+  const [freeAboveCOD, setFreeAboveCOD] = useState(999);
+  const [shippingUPI, setShippingUPI] = useState(0);
+  const [freeAboveUPI, setFreeAboveUPI] = useState(99999);
+
   useEffect(() => {
     (async () => {
       try {
         const d = await dataManager.getSettings("site");
         if (d) {
-          setShippingCharge(d.shippingCharge ?? 99);
-          setFreeAbove(d.freeShippingAbove ?? 999);
+          const oldCharge = d.shippingCharge ?? 99;
+          const oldFree = d.freeShippingAbove ?? 999;
+          setShippingCOD(d.shippingCOD ?? oldCharge);
+          setFreeAboveCOD(d.freeAboveCOD ?? oldFree);
+          setShippingUPI(d.shippingUPI ?? 0);
+          setFreeAboveUPI(d.freeAboveUPI ?? 99999);
         }
       } catch (e) { }
     })();
   }, []);
-  return { shippingCharge, freeAbove };
+  return { shippingCOD, freeAboveCOD, shippingUPI, freeAboveUPI };
 }
 
 // ---- CART PAGE ----
 export function Cart() {
   const { cart, cartLoading, removeFromCart, updateQty, total } = useCart();
-  const { shippingCharge, freeAbove } = useShippingSettings();
+  const { shippingCOD, freeAboveCOD, shippingUPI, freeAboveUPI } = useShippingSettings();
   const navigate = useNavigate();
-  const shipping = total >= freeAbove ? 0 : shippingCharge;
-  const finalTotal = total + shipping;
+  // Show COD shipping as the default estimate in the cart
+  const shippingEst = total >= freeAboveCOD ? 0 : shippingCOD;
+  const upiShippingEst = total >= freeAboveUPI ? 0 : shippingUPI;
+  const finalTotal = total + shippingEst;
 
   if (cartLoading) return (
     <div className="flex-center" style={{ minHeight: "70vh" }}>
@@ -98,14 +107,19 @@ export function Cart() {
               <span>₹{total}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ color: "var(--gray3)" }}>Shipping</span>
-              <span style={{ color: shipping === 0 ? "#4ade80" : "var(--white)", fontWeight: 600 }}>
-                {shipping === 0 ? "FREE 🎉" : `₹${shipping}`}
+              <span style={{ color: "var(--gray3)" }}>Shipping Estimate (COD)</span>
+              <span style={{ color: shippingEst === 0 ? "#4ade80" : "var(--white)", fontWeight: 600 }}>
+                {shippingEst === 0 ? "FREE 🎉" : `₹${shippingEst}`}
               </span>
             </div>
-            {shipping > 0 && (
+            {shippingEst > 0 && upiShippingEst === 0 && (
+              <div style={{ fontSize: 12, color: "var(--black)", background: "var(--neon)", padding: "8px 12px", borderRadius: 8, fontWeight: 700, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>✨</span> Pay via UPI/Online at checkout for FREE delivery!
+              </div>
+            )}
+            {shippingEst > 0 && upiShippingEst > 0 && (
               <div style={{ fontSize: 12, color: "var(--neon)", background: "rgba(212,255,0,0.07)", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(212,255,0,0.15)" }}>
-                Add ₹{freeAbove - total} more for FREE shipping!
+                Add ₹{freeAboveCOD - total} more for FREE shipping!
               </div>
             )}
           </div>
@@ -131,7 +145,7 @@ export function Cart() {
 export function Checkout() {
   const { cart, cartLoading, total, clearCart } = useCart();
   const { currentUser, userProfile } = useAuth();
-  const { shippingCharge, freeAbove } = useShippingSettings();
+  const { shippingCOD, freeAboveCOD, shippingUPI, freeAboveUPI } = useShippingSettings();
   const navigate = useNavigate();
   const [payMethod, setPayMethod] = useState("cod");
   const [upiId, setUpiId] = useState("");
@@ -147,9 +161,84 @@ export function Checkout() {
   });
 
   const [merchantUpi, setMerchantUpi] = useState("7265065054@ybl");
-  const shipping = total >= freeAbove ? 0 : shippingCharge;
-  const finalTotal = total + shipping;
+  
+  // COUPON STATE
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState("");
+
+  const shipping = payMethod === "online" 
+    ? (total >= freeAboveUPI ? 0 : shippingUPI)
+    : (total >= freeAboveCOD ? 0 : shippingCOD);
+
+  let discountAmount = 0;
+  if (appliedCoupon && total >= (appliedCoupon.minOrderValue || 0) && (appliedCoupon.applicableMethod === "both" || appliedCoupon.applicableMethod === payMethod)) {
+    if (appliedCoupon.discountType === "flat") {
+      discountAmount = appliedCoupon.discountValue;
+    } else {
+      discountAmount = (total * appliedCoupon.discountValue) / 100;
+      if (appliedCoupon.maxDiscount && discountAmount > appliedCoupon.maxDiscount) {
+        discountAmount = appliedCoupon.maxDiscount;
+      }
+    }
+    discountAmount = Math.min(discountAmount, total);
+  }
+
+  const finalTotal = total + shipping - discountAmount;
   const upiDeepLink = `upi://pay?pa=${merchantUpi}&pn=${encodeURIComponent("Voggue7")}&am=${finalTotal}&cu=INR`;
+
+  useEffect(() => {
+    if (appliedCoupon && appliedCoupon.applicableMethod !== "both" && appliedCoupon.applicableMethod !== payMethod) {
+      setAppliedCoupon(null);
+      setCouponError(`Coupon removed because it's only valid for ${appliedCoupon.applicableMethod.toUpperCase()} payments.`);
+    }
+  }, [payMethod, appliedCoupon]);
+
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) return;
+    setApplyingCoupon(true);
+    setCouponError("");
+    try {
+      const c = await dataManager.getCouponByCode(couponCode);
+      if (!c || !c.isActive) {
+        setCouponError("Invalid or inactive coupon code.");
+        setAppliedCoupon(null);
+        return;
+      }
+      if (c.minOrderValue && total < c.minOrderValue) {
+        setCouponError(`Min order value of ₹${c.minOrderValue} required.`);
+        setAppliedCoupon(null);
+        return;
+      }
+      if (c.applicableMethod !== "both" && c.applicableMethod !== payMethod) {
+        setCouponError(`This coupon is only valid for ${c.applicableMethod.toUpperCase()} payments.`);
+        setAppliedCoupon(null);
+        return;
+      }
+      if (c.usageLimitPerUser && currentUser) {
+        const usageCount = await dataManager.getUserCouponUsageCount(currentUser.uid, c.code);
+        if (usageCount >= c.usageLimitPerUser) {
+          setCouponError("You have reached the usage limit for this coupon.");
+          setAppliedCoupon(null);
+          return;
+        }
+      }
+      setCouponError("");
+      setAppliedCoupon(c);
+      toast.success("Coupon applied! 🎉");
+    } catch (e) {
+      setCouponError("Error checking coupon");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  }
 
   useEffect(() => {
     (async () => {
@@ -191,6 +280,8 @@ export function Checkout() {
         total: finalTotal,
         subtotal: total,
         shipping,
+        coupon: appliedCoupon ? appliedCoupon.code : null,
+        discountAmount: discountAmount || 0,
         shippingAddress: address,
         paymentMethod: payMethod,
         paymentStatus: payMethod === "cod" ? "cod" : "pending_verification",
@@ -257,7 +348,10 @@ export function Checkout() {
               "Our approach to commerce is intentional and transparent✨. By eliminating third-party processors🚫, we protect your financial data🔒 and keep your experience truly personal🤝, Because the Voggue7 Gang deserves privacy, not compromise💎"
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-              {[["cod", "Cash on Delivery 🚚"], ["online", "UPI / Online 📱"]].map(([v, l]) => (
+              {[
+                ["cod", "Cash on Delivery \ud83d\ude9a", total >= freeAboveCOD ? 0 : shippingCOD], 
+                ["online", "UPI / Online \ud83d\udcf1", total >= freeAboveUPI ? 0 : shippingUPI]
+              ].map(([v, l, fee]) => (
                 <button key={v} onClick={() => setPayMethod(v)}
                   style={{
                     flex: 1, padding: "14px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14,
@@ -265,8 +359,10 @@ export function Checkout() {
                     border: `1.5px solid ${payMethod === v ? "var(--neon)" : "#333"}`,
                     color: payMethod === v ? "var(--neon)" : "var(--white)",
                     transition: "all 0.2s",
+                    display: "flex", flexDirection: "column", gap: 4, alignItems: "center"
                   }}>
-                  {l}
+                  <div>{l}</div>
+                  <div style={{ fontSize: 11, color: fee === 0 ? "#4ade80" : "var(--gray3)", fontWeight: 600 }}>{fee === 0 ? "FREE Delivery" : `+₹${fee} Delivery`}</div>
                 </button>
               ))}
             </div>
@@ -312,6 +408,14 @@ export function Checkout() {
                   <label className="label">UTR / Transaction Number *</label>
                   <input type="text" value={utr} onChange={e => setUtr(e.target.value)} placeholder="12-digit UTR number from your UPI app" className="input" />
                 </div>
+                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.1)", padding: "12px 14px", borderRadius: 8, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gray3)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>💡 How to find these details?</div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "var(--gray3)", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <li><strong style={{ color: "var(--white)" }}>Your UPI ID:</strong> Found in your UPI app profile (e.g., yourname@okhdfcbank, 9876543210@paytm).</li>
+                    <li><strong style={{ color: "var(--white)" }}>UTR Number:</strong> A 12-digit reference number generated after successful payment. Open your payment history in PhonePe, GPay, or Paytm to find it (often called "UPI Ref No" or "Txn ID").</li>
+                  </ul>
+                </div>
+
                 <div style={{ fontSize: 12, color: "var(--orange)", background: "rgba(255,107,53,0.08)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,107,53,0.2)" }}>
                   ⚠️ Admin will verify your UTR number. Order confirmed after verification (usually within 1 hour).
                 </div>
@@ -338,11 +442,40 @@ export function Checkout() {
             ))}
           </div>
           <div className="divider" />
+          
+          <div style={{ marginBottom: 16 }}>
+            {appliedCoupon ? (
+              <div style={{ background: "rgba(212,255,0,0.06)", border: "1px solid rgba(212,255,0,0.2)", borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--neon)" }}>🎟️ {appliedCoupon.code}</div>
+                  <div style={{ fontSize: 11, color: "var(--gray3)" }}>Coupon applied successfully</div>
+                </div>
+                <button onClick={handleRemoveCoupon} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Remove</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input type="text" value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="Coupon Code" className="input" style={{ textTransform: "uppercase", padding: "10px 12px" }} />
+                  <button onClick={handleApplyCoupon} disabled={applyingCoupon || !couponCode} className="btn btn-secondary" style={{ padding: "10px 16px" }}>
+                    {applyingCoupon ? "..." : "Apply"}
+                  </button>
+                </div>
+                {couponError && <div style={{ fontSize: 12, color: "#f87171", marginTop: 6 }}>{couponError}</div>}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "var(--gray3)" }}>Subtotal</span>
               <span>₹{total}</span>
             </div>
+            {discountAmount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--neon)" }}>
+                <span>Discount ({appliedCoupon.code})</span>
+                <span>-₹{discountAmount}</span>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "var(--gray3)" }}>Shipping</span>
               <span style={{ color: shipping === 0 ? "#4ade80" : "var(--white)" }}>

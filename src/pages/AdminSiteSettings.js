@@ -7,8 +7,10 @@ export default function AdminSiteSettings() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("shipping");
   const [settings, setSettings] = useState({
-    shippingCharge: 99,
-    freeShippingAbove: 999,
+    shippingCOD: 99,
+    freeAboveCOD: 999,
+    shippingUPI: 0,
+    freeAboveUPI: 99999,
     socialLinks: { instagram: "", twitter: "", youtube: "" },
     privacyPolicy: "## Privacy Policy\n\nYour privacy matters to us at Voggue7. We collect only necessary information to process your orders. We never sell your data to third parties.\n\n### Data We Collect\n- Name, email, phone for order processing\n- Shipping address for delivery\n- Payment confirmation details\n\n### How We Use It\nOnly to process and deliver your orders.\n\nFor questions, contact us at support@voggue7.com",
     termsOfService: "## Terms of Service\n\nBy using Voggue7, you agree to these terms.\n\n### Orders\n- All orders are subject to product availability\n- Prices may change without notice\n- We reserve the right to cancel any order\n\n### Returns\n- 7-day return policy from delivery date\n- Items must be unworn with original tags\n- Refunds processed within 5-7 business days\n\n### Payments\n- We accept UPI and Cash on Delivery\n- UPI payments verified by admin before dispatch",
@@ -60,21 +62,32 @@ export default function AdminSiteSettings() {
       {tab === "shipping" && (
         <div className="card" style={{ maxWidth: 500 }}>
           <h3 style={{ fontWeight: 700, marginBottom: 20 }}>💰 Shipping Charges</h3>
+          
+          <h4 style={{ fontWeight: 600, marginBottom: 12, color: "var(--neon)" }}>Cash on Delivery (COD)</h4>
           <div className="form-group">
-            <label className="label">Shipping Charge (₹)</label>
-            <input type="number" value={settings.shippingCharge} onChange={e => setSettings(prev => ({ ...prev, shippingCharge: Number(e.target.value) }))} className="input" placeholder="99" />
-            <div style={{ fontSize: 12, color: "var(--gray3)", marginTop: 4 }}>This is charged when order is below the free shipping threshold</div>
+            <label className="label">COD Shipping Fee (₹)</label>
+            <input type="number" value={settings.shippingCOD ?? 99} onChange={e => setSettings(prev => ({ ...prev, shippingCOD: Number(e.target.value) }))} className="input" placeholder="99" />
           </div>
+          <div className="form-group" style={{ marginBottom: 24 }}>
+            <label className="label">COD Free Shipping Above (₹)</label>
+            <input type="number" value={settings.freeAboveCOD ?? 999} onChange={e => setSettings(prev => ({ ...prev, freeAboveCOD: Number(e.target.value) }))} className="input" placeholder="999" />
+          </div>
+
+          <h4 style={{ fontWeight: 600, marginBottom: 12, color: "var(--neon)" }}>UPI / Online Payment</h4>
           <div className="form-group">
-            <label className="label">Free Shipping Above (₹)</label>
-            <input type="number" value={settings.freeShippingAbove} onChange={e => setSettings(prev => ({ ...prev, freeShippingAbove: Number(e.target.value) }))} className="input" placeholder="999" />
-            <div style={{ fontSize: 12, color: "var(--gray3)", marginTop: 4 }}>Orders above this amount get free shipping</div>
+            <label className="label">UPI Shipping Fee (₹)</label>
+            <input type="number" value={settings.shippingUPI ?? 0} onChange={e => setSettings(prev => ({ ...prev, shippingUPI: Number(e.target.value) }))} className="input" placeholder="0" />
           </div>
+          <div className="form-group" style={{ marginBottom: 24 }}>
+            <label className="label">UPI Free Shipping Above (₹)</label>
+            <input type="number" value={settings.freeAboveUPI ?? 99999} onChange={e => setSettings(prev => ({ ...prev, freeAboveUPI: Number(e.target.value) }))} className="input" placeholder="99999" />
+          </div>
+
           <div style={{ background: "rgba(212,255,0,0.06)", border: "1px solid rgba(212,255,0,0.15)", borderRadius: 10, padding: 14, marginTop: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Preview:</div>
             <div style={{ fontSize: 13, color: "var(--gray3)" }}>
-              Orders above ₹{settings.freeShippingAbove} → <strong style={{ color: "#4ade80" }}>FREE</strong><br />
-              Orders below ₹{settings.freeShippingAbove} → <strong style={{ color: "var(--white)" }}>₹{settings.shippingCharge}</strong>
+              <strong>COD:</strong> Below ₹{settings.freeAboveCOD ?? 999} → ₹{settings.shippingCOD ?? 99} (Otherwise Free)<br />
+              <strong>UPI:</strong> Below ₹{settings.freeAboveUPI ?? 99999} → ₹{settings.shippingUPI ?? 0} (Otherwise Free)
             </div>
           </div>
         </div>

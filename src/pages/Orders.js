@@ -411,6 +411,7 @@ export default function Orders() {
                       <div style={{fontSize:11,color:"var(--gray3)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Payment Summary</div>
                       <div style={{fontSize:13}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"var(--gray3)"}}>Subtotal</span><span>₹{order.subtotal||order.total}</span></div>
+                        {order.coupon && <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,color:"var(--neon)"}}><span>Coupon ({order.coupon})</span><span>-₹{order.discountAmount}</span></div>}
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"var(--gray3)"}}>Shipping</span><span style={{color:order.shipping===0?"#4ade80":"var(--white)"}}>{order.shipping===0?"FREE":`₹${order.shipping}`}</span></div>
                         <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,borderTop:"1px solid var(--border)",paddingTop:6}}><span>Total</span><span style={{color:"var(--neon)"}}>₹{order.total}</span></div>
                         <div style={{marginTop:8,fontSize:12,color:"var(--gray3)"}}>Method: <strong style={{color:"var(--white)"}}>{order.paymentMethod==="cod"?"Cash on Delivery":"UPI/Online"}</strong></div>

@@ -17,6 +17,7 @@ import Wishlist from "./pages/Wishlist";
 import PolicyPage from "./pages/PolicyPage";
 import AdminSiteSettings from "./pages/AdminSiteSettings";
 import ScrollToTop from "./components/ScrollToTop";
+import WelcomeScreen from "./components/WelcomeScreen";
 import "./index.css";
 
 function ProtectedRoute({ children, adminOnly }) {
@@ -88,6 +89,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <WelcomeScreen />
       <AuthProvider>
         <CartProvider>
           <AppRoutes />
